@@ -1,0 +1,31 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:stockflow}
+    username: ${DB_USER:stockflow}
+    password: ${DB_PASSWORD:stockflow}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-me-to-a-long-secure-secret-123456789}
+    access-token-minutes: 30
+    refresh-token-days: 7
+  ml:
+    service-url: ${ML_SERVICE_URL:http://localhost:8000}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+

@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: stockflow-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./infra/db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ml-service:
+    build: ./ml-service
+    container_name: stockflow-ml
+    environment:
+      PORT: ${ML_PORT}
+    ports:
+      - "${ML_PORT}:${ML_PORT}"
+
+  backend:
+    build: ./backend
+    container_name: stockflow-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ml-service:
+        condition: service_started
+    environment:
+      SERVER_PORT: ${BACKEND_PORT}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      ML_SERVICE_URL: ${ML_SERVICE_URL}
+    ports:
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
+
+  frontend:
+    build: ./frontend
+    container_name: stockflow-frontend
+    depends_on:
+      - backend
+    environment:
+      VITE_API_BASE_URL: http://localhost:${BACKEND_PORT}/api
+      VITE_WS_URL: ws://localhost:${BACKEND_PORT}/ws
+    ports:
+      - "${FRONTEND_PORT}:80"
+
+volumes:
+  pg_data:
+

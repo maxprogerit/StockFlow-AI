@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-background text-slate-100 antialiased;
+  background-image: radial-gradient(circle at top right, rgba(45, 140, 255, 0.2), transparent 45%),
+    radial-gradient(circle at bottom left, rgba(138, 77, 255, 0.2), transparent 42%);
+}
+
+.glass {
+  @apply border border-white/10 bg-white/5 backdrop-blur-xl shadow-glass;
+}
+
