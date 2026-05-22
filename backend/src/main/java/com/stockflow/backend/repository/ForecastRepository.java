@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ForecastRepository extends JpaRepository<ForecastRecord, UUID> {
-    List<ForecastRecord> findByProductIdOrderByCreatedAtDesc(UUID productId);
+    List<ForecastRecord> findByOwnerIdAndProductIdOrderByCreatedAtDesc(UUID ownerId, UUID productId);
+    List<ForecastRecord> findByOwnerIdOrderByCreatedAtDesc(UUID ownerId);
 }
 

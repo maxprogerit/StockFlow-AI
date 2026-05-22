@@ -1,7 +1,9 @@
 package com.stockflow.backend.domain.order;
 
 import com.stockflow.backend.common.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.stockflow.backend.domain.supplier.Supplier;
+import com.stockflow.backend.domain.user.User;
 import com.stockflow.backend.domain.warehouse.Warehouse;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -18,6 +20,11 @@ import lombok.Setter;
 @Entity
 @Table(name = "purchase_orders")
 public class PurchaseOrder extends BaseEntity {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id")
+    @JsonIgnore
+    private User owner;
+
     private String orderNumber;
     private String status;
     private BigDecimal totalAmount;

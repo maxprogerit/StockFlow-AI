@@ -1,106 +1,125 @@
+import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
-import { forecastingSeries, riskHeatmap } from "@/data/platformData";
-import { useState } from "react";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from "recharts";
+import api from "@/lib/api";
+import { useToastStore } from "@/store/toast";
+import { Line, LineChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useEffect, useState } from "react";
+import { Sparkles } from "lucide-react";
+
+type Product = { id: string; name: string };
+type ForecastResult = {
+  predicted_demand: number;
+  recommended_restock: number;
+  confidence: number;
+  insight: string;
+  series: { period: number; forecast: number }[];
+};
 
 export default function ForecastingPage() {
-  const [horizon, setHorizon] = useState("6 months");
-  const [warehouse, setWarehouse] = useState("All");
+  const toast = useToastStore((s) => s.push);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productId, setProductId] = useState("");
+  const [months, setMonths] = useState("6");
+  const [result, setResult] = useState<ForecastResult | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api
+      .get("/products", { params: { page: 0, size: 200 } })
+      .then((r) => {
+        const list = (r.data.content || []).map((item: any) => ({ id: item.id, name: item.name }));
+        setProducts(list);
+        if (list.length) setProductId(list[0].id);
+      })
+      .catch(() => toast({ title: "Failed to load products", variant: "danger" }));
+  }, []);
+
+  const run = async () => {
+    if (!productId) return;
+    setError("");
+    try {
+      const { data } = await api.post(`/forecasting/${productId}?months=${months}`);
+      setResult(data);
+    } catch (err: any) {
+      setResult(null);
+      setError(err.response?.data?.error || "Forecast cannot be generated yet.");
+    }
+  };
+
+  if (products.length === 0) {
+    return <EmptyState icon={Sparkles} title="Not enough data for forecasting" description="Create products and completed orders first. Forecasting requires historical order points." />;
+  }
 
   return (
     <div className="space-y-4">
-      <PageHeader title="AI Forecasting Engine" subtitle="Predict demand, optimize stock strategy, and prevent inventory risk.">
+      <PageHeader title="AI Forecasting Engine" subtitle="Demand forecast, confidence, restock recommendations, and stock risk projections.">
         <div className="flex gap-2">
-          <Select value={horizon} onChange={(e) => setHorizon(e.target.value)} className="w-32">
-            {["3 months", "6 months", "12 months"].map((item) => (
-              <option key={item}>{item}</option>
+          <Select value={productId} onChange={(e) => setProductId(e.target.value)} className="w-52">
+            {products.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
             ))}
           </Select>
-          <Select value={warehouse} onChange={(e) => setWarehouse(e.target.value)} className="w-40">
-            {["All", "Berlin Hub", "Prague Node", "Warsaw Dock", "Milan Port"].map((item) => (
-              <option key={item}>{item}</option>
-            ))}
+          <Select value={months} onChange={(e) => setMonths(e.target.value)} className="w-32">
+            <option value="3">3 months</option>
+            <option value="6">6 months</option>
+            <option value="12">12 months</option>
           </Select>
-          <Button>Apply filters</Button>
+          <Button onClick={() => void run()}>Run forecast</Button>
         </div>
       </PageHeader>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <p className="text-xs text-slate-400">Prediction Confidence</p>
-          <p className="mt-2 text-2xl font-semibold">84.2%</p>
-          <p className="text-xs text-emerald-300">+2.5% vs last cycle</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-slate-400">Demand Growth</p>
-          <p className="mt-2 text-2xl font-semibold">+14.8%</p>
-          <p className="text-xs text-emerald-300">Q3 projected</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-slate-400">Restock Priority SKUs</p>
-          <p className="mt-2 text-2xl font-semibold">27</p>
-          <p className="text-xs text-amber-300">11 high urgency</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-slate-400">Inventory Risk Score</p>
-          <p className="mt-2 text-2xl font-semibold">38/100</p>
-          <p className="text-xs text-emerald-300">Within safe band</p>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <p className="mb-3 text-sm font-semibold">Future Demand Prediction Timeline</p>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={forecastingSeries}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#33415544" />
-                <XAxis dataKey="month" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip />
-                <Line dataKey="demand" stroke="#2D8CFF" strokeWidth={2} />
-                <Line dataKey="predicted" stroke="#8A4DFF" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
+      {error ? (
+        <EmptyState icon={Sparkles} title="Forecast unavailable" description={`${error} Add at least 3 completed order records for this product.`} />
+      ) : result ? (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Card>
+              <p className="text-xs text-slate-400">Predicted Demand</p>
+              <p className="mt-2 text-2xl font-semibold">{Number(result.predicted_demand).toLocaleString()}</p>
+            </Card>
+            <Card>
+              <p className="text-xs text-slate-400">Recommended Restock</p>
+              <p className="mt-2 text-2xl font-semibold">{Number(result.recommended_restock).toLocaleString()}</p>
+            </Card>
+            <Card>
+              <p className="text-xs text-slate-400">Confidence</p>
+              <p className="mt-2 text-2xl font-semibold">{Math.round(result.confidence * 100)}%</p>
+            </Card>
+            <Card>
+              <p className="text-xs text-slate-400">Risk Level</p>
+              <p className="mt-2 text-2xl font-semibold">{result.confidence < 0.75 ? "High" : result.confidence < 0.85 ? "Medium" : "Low"}</p>
+            </Card>
           </div>
-        </Card>
-        <Card>
-          <p className="text-sm font-semibold">Smart Restock Suggestions</p>
-          <div className="mt-3 space-y-2 text-sm">
-            <div className="rounded-xl bg-white/5 p-3">Increase AI Vision Camera by +18%</div>
-            <div className="rounded-xl bg-white/5 p-3">Move 120 RFID tags to Prague Node</div>
-            <div className="rounded-xl bg-white/5 p-3">Delay ArcFlow procurement by 9 days</div>
+          <div className="grid gap-4 xl:grid-cols-3">
+            <Card className="xl:col-span-2">
+              <p className="mb-3 text-sm font-semibold">Seasonal Trend Projection</p>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={result.series}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#33415544" />
+                    <XAxis dataKey="period" stroke="#94a3b8" />
+                    <YAxis stroke="#94a3b8" />
+                    <Tooltip />
+                    <Line dataKey="forecast" stroke="#8A4DFF" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+            <Card>
+              <p className="text-sm font-semibold">AI Explanation</p>
+              <p className="mt-3 rounded-xl bg-white/5 p-3 text-sm">{result.insight}</p>
+              <p className="mt-3 rounded-xl bg-white/5 p-3 text-xs text-slate-300">Expected stockout date (estimated): {result.predicted_demand > result.recommended_restock ? "Soon - prioritize restock" : "Stable in selected horizon"}.</p>
+            </Card>
           </div>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <p className="mb-3 text-sm font-semibold">Prediction Heatmap (Risk vs Volatility)</p>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart>
-                <CartesianGrid stroke="#33415544" />
-                <XAxis dataKey="risk" name="Risk" stroke="#94a3b8" />
-                <YAxis dataKey="volatility" name="Volatility" stroke="#94a3b8" />
-                <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-                <Scatter data={riskHeatmap} fill="#8A4DFF" />
-              </ScatterChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-        <Card>
-          <p className="text-sm font-semibold">AI Recommendations</p>
-          <div className="mt-3 space-y-2 text-xs text-slate-300">
-            <p className="rounded-xl bg-white/5 p-3">Seasonal trend detected: monitoring sensors +22% in Q4.</p>
-            <p className="rounded-xl bg-white/5 p-3">Prague shortage probability in 12 days if current velocity persists.</p>
-            <p className="rounded-xl bg-white/5 p-3">Optimal transfer window: Tue 06:00 to reduce freight cost by 9%.</p>
-          </div>
-        </Card>
-      </div>
+        </>
+      ) : (
+        <EmptyState icon={Sparkles} title="Run your first forecast" description="Select a product and forecast horizon to generate AI demand projections." />
+      )}
     </div>
   );
 }

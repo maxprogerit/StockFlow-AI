@@ -1,103 +1,138 @@
+import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { alerts } from "@/data/platformData";
+import api from "@/lib/api";
 import { useToastStore } from "@/store/toast";
-import { BellRing, Settings2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { BellRing } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+
+type Alert = { id: string; type: string; severity: string; message: string; read: boolean; resolved: boolean };
 
 export default function AlertsPage() {
-  const pushToast = useToastStore((s) => s.push);
-  const [severity, setSeverity] = useState("All");
-  const [category, setCategory] = useState("All");
-  const [query, setQuery] = useState("");
+  const toast = useToastStore((s) => s.push);
+  const [items, setItems] = useState<Alert[]>([]);
+  const [severity, setSeverity] = useState("");
 
-  const filtered = useMemo(
-    () =>
-      alerts.filter((item) => {
-        const bySeverity = severity === "All" || item.severity === severity;
-        const byCategory = category === "All" || item.category === category;
-        const byQuery = item.title.toLowerCase().includes(query.toLowerCase());
-        return bySeverity && byCategory && byQuery;
-      }),
-    [severity, category, query]
-  );
+  const load = async () => {
+    try {
+      const { data } = await api.get("/alerts");
+      setItems(data || []);
+    } catch {
+      toast({ title: "Failed to load alerts", variant: "danger" });
+    }
+  };
+
+  useEffect(() => {
+    void load();
+
+    const base = String(api.defaults.baseURL || "").replace("/api", "");
+    const wsUrl = base.replace(/^http/, "ws") + "/ws";
+    const socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => {
+      socket.send("CONNECT\naccept-version:1.2\nheart-beat:10000,10000\n\n\0");
+      socket.send("SUBSCRIBE\nid:alerts-sub\ndestination:/topic/alerts\n\n\0");
+    };
+
+    socket.onmessage = (event) => {
+      if (!event.data.includes("MESSAGE")) return;
+      const body = event.data.split("\n\n")[1]?.replace("\0", "");
+      if (!body) return;
+      try {
+        const payload = JSON.parse(body);
+        setItems((prev) => [payload, ...prev]);
+      } catch {}
+    };
+
+    return () => socket.close();
+  }, []);
+
+  const filtered = useMemo(() => items.filter((item) => !severity || item.severity === severity), [items, severity]);
+
+  const read = async (id: string, value: boolean) => {
+    try {
+      await api.patch(`/alerts/${id}/read`, { read: value });
+      await load();
+    } catch {
+      toast({ title: "Failed to update alert", variant: "danger" });
+    }
+  };
+
+  const resolve = async (id: string) => {
+    try {
+      await api.patch(`/alerts/${id}/resolve`);
+      await load();
+    } catch {
+      toast({ title: "Failed to resolve alert", variant: "danger" });
+    }
+  };
+
+  const remove = async (id: string) => {
+    try {
+      await api.delete(`/alerts/${id}`);
+      await load();
+    } catch {
+      toast({ title: "Failed to delete alert", variant: "danger" });
+    }
+  };
+
+  const readAll = async () => {
+    try {
+      await api.patch("/alerts/read-all");
+      await load();
+    } catch {
+      toast({ title: "Failed to mark alerts", variant: "danger" });
+    }
+  };
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Real-time Alert Center" subtitle="Smart notifications for low stock, expiry, warehouse incidents, and delays.">
-        <Button
-          variant="outline"
-          className="gap-2"
-          onClick={() => pushToast({ title: "Notification settings synced", description: "Alert thresholds and channels were updated.", variant: "success" })}
-        >
-          <Settings2 className="h-4 w-4" />
-          Notification settings
-        </Button>
-      </PageHeader>
-      <Card>
-        <div className="grid gap-3 md:grid-cols-4">
-          <Input placeholder="Search alerts..." value={query} onChange={(e) => setQuery(e.target.value)} />
-          <Select value={severity} onChange={(e) => setSeverity(e.target.value)}>
-            {["All", "Low", "Medium", "High", "Critical"].map((item) => (
-              <option key={item}>{item}</option>
-            ))}
+      <PageHeader title="Real-time Alert Center" subtitle="Business-rule alerts with read, resolve, and delete actions.">
+        <div className="flex gap-2">
+          <Select value={severity} onChange={(e) => setSeverity(e.target.value)} className="w-36">
+            <option value="">All severity</option>
+            <option>LOW</option>
+            <option>MEDIUM</option>
+            <option>HIGH</option>
+            <option>CRITICAL</option>
           </Select>
-          <Select value={category} onChange={(e) => setCategory(e.target.value)}>
-            {["All", "Low Stock", "Expiry", "Warehouse Issue", "Delay"].map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </Select>
-          <Button>Apply filters</Button>
+          <Button variant="outline" onClick={() => void readAll()}>
+            Mark all as read
+          </Button>
         </div>
-      </Card>
+      </PageHeader>
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <p className="mb-3 text-sm font-semibold">Smart Alert Cards</p>
+      {filtered.length === 0 ? (
+        <EmptyState icon={BellRing} title="No alerts yet" description="Alerts will appear automatically from low stock, forecast, and order signals." />
+      ) : (
+        <Card>
           <div className="space-y-3">
             {filtered.map((alert) => (
-              <div key={alert.id} className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-neon-blue/40">
+              <div key={alert.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium">{alert.title}</p>
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs ${
-                      alert.severity === "Critical"
-                        ? "bg-red-500/20 text-red-300"
-                        : alert.severity === "High"
-                          ? "bg-amber-500/20 text-amber-300"
-                          : alert.severity === "Medium"
-                            ? "bg-sky-500/20 text-sky-300"
-                            : "bg-emerald-500/20 text-emerald-300"
-                    }`}
-                  >
-                    {alert.severity}
-                  </span>
+                  <p className="font-medium">
+                    {alert.type} • {alert.severity}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="h-8 px-2 text-xs" onClick={() => void read(alert.id, !alert.read)}>
+                      {alert.read ? "Unread" : "Read"}
+                    </Button>
+                    <Button variant="outline" className="h-8 px-2 text-xs" onClick={() => void resolve(alert.id)}>
+                      Resolve
+                    </Button>
+                    <Button variant="outline" className="h-8 px-2 text-xs" onClick={() => void remove(alert.id)}>
+                      Delete
+                    </Button>
+                  </div>
                 </div>
-                <p className="mt-1 text-xs text-slate-400">
-                  {alert.category} • {alert.timestamp}
-                </p>
-                <p className="mt-3 rounded-xl bg-white/5 p-3 text-sm">{alert.recommendation}</p>
+                <p className="mt-2 text-sm text-slate-300">{alert.message}</p>
               </div>
             ))}
           </div>
         </Card>
-        <Card>
-          <p className="text-sm font-semibold">Notification Timeline</p>
-          <div className="mt-3 space-y-2 text-xs text-slate-300">
-            <p className="rounded-xl bg-white/5 p-3">16:40 - Critical queue delay detected</p>
-            <p className="rounded-xl bg-white/5 p-3">16:28 - Shelf-life warning triggered</p>
-            <p className="rounded-xl bg-white/5 p-3">16:10 - Reorder threshold crossed</p>
-            <p className="rounded-xl bg-white/5 p-3">15:56 - Supplier delay notice received</p>
-          </div>
-          <div className="mt-4 rounded-xl border border-neon-purple/30 bg-neon-purple/10 p-3 text-xs">
-            <BellRing className="mb-1 h-4 w-4 text-neon-purple" />
-            AI recommendation: reroute incoming container to Berlin Hub.
-          </div>
-        </Card>
-      </div>
+      )}
     </div>
   );
 }

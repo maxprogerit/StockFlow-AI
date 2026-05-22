@@ -1,28 +1,45 @@
 import { Card } from "@/components/ui/card";
 import api from "@/lib/api";
+import { EmptyState } from "@/components/common/EmptyState";
 import { motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { AlertTriangle, Boxes } from "lucide-react";
+import { useEffect, useState } from "react";
 
-type Metrics = { totalProducts: number; totalWarehouses: number; lowStockItems: number; totalRevenue: number };
+type DashboardOverview = {
+  totalInventoryValue: number;
+  totalProducts: number;
+  totalWarehouses: number;
+  lowStockItems: number;
+  monthlyRevenue: number;
+  inventoryValueChart: { month: string; value: number }[];
+  categoryDistribution: { name: string; value: number }[];
+  warehousePerformance: { name: string; units: number }[];
+  recentOrders: { id: string; orderNumber: string; customer: string; status: string; amount: number }[];
+  recentMovements: { id: string; type: string; quantity: number; productName: string; warehouseName: string; occurredAt: string }[];
+  alerts: { id: string; severity: string; message: string }[];
+  aiInsights: string[];
+};
 
 export default function DashboardPage() {
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [overview, setOverview] = useState<DashboardOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    api.get("/dashboard/metrics").then((r) => setMetrics(r.data)).catch(() => undefined);
+    api
+      .get("/dashboard/overview")
+      .then((r) => setOverview(r.data))
+      .finally(() => setLoading(false));
   }, []);
 
-  const trend = useMemo(
-    () => [
-      { month: "Jan", value: 11000 },
-      { month: "Feb", value: 13500 },
-      { month: "Mar", value: 12200 },
-      { month: "Apr", value: 16800 },
-      { month: "May", value: 19000 },
-      { month: "Jun", value: 22100 }
-    ],
-    []
-  );
+  if (!loading && overview && overview.totalProducts === 0) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-3xl font-semibold">AI Inventory Command Center</h1>
+        <EmptyState icon={Boxes} title="Your workspace is empty" description="Add first product, create first warehouse, and start recording inventory to unlock live analytics." />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -32,10 +49,11 @@ export default function DashboardPage() {
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {[
-          ["Revenue", `$${metrics?.totalRevenue?.toLocaleString() ?? "..."}`],
-          ["Products", metrics?.totalProducts ?? "..."],
-          ["Warehouses", metrics?.totalWarehouses ?? "..."],
-          ["Low Stock", metrics?.lowStockItems ?? "..."]
+          ["Inventory Value", `$${overview?.totalInventoryValue?.toLocaleString() ?? "..."}`],
+          ["Monthly Revenue", `$${overview?.monthlyRevenue?.toLocaleString() ?? "..."}`],
+          ["Products", overview?.totalProducts ?? "..."],
+          ["Warehouses", overview?.totalWarehouses ?? "..."],
+          ["Low Stock", overview?.lowStockItems ?? "..."]
         ].map(([label, value]) => (
           <motion.div key={String(label)} whileHover={{ y: -2 }}>
             <Card>
@@ -45,33 +63,99 @@ export default function DashboardPage() {
           </motion.div>
         ))}
       </div>
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <div className="mb-4 text-sm text-slate-300">Revenue overview</div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <div className="mb-4 text-sm text-slate-300">Inventory value trend</div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trend}>
-                <defs>
-                  <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2D8CFF" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#8A4DFF" stopOpacity={0.1} />
-                  </linearGradient>
-                </defs>
+              <BarChart data={overview?.inventoryValueChart ?? []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#33415544" />
                 <XAxis dataKey="month" stroke="#94a3b8" />
                 <YAxis stroke="#94a3b8" />
                 <Tooltip />
-                <Area type="monotone" dataKey="value" stroke="#2D8CFF" fillOpacity={1} fill="url(#rev)" />
-              </AreaChart>
+                <Bar dataKey="value" fill="#2D8CFF" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+        <Card>
+          <div className="mb-4 text-sm text-slate-300">Category distribution</div>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={overview?.categoryDistribution ?? []} dataKey="value" nameKey="name" outerRadius={120} fill="#8A4DFF" label />
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      </div>
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Card className="xl:col-span-2">
+          <div className="mb-4 text-sm text-slate-300">Warehouse performance</div>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={overview?.warehousePerformance ?? []}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#33415544" />
+                <XAxis dataKey="name" stroke="#94a3b8" />
+                <YAxis stroke="#94a3b8" />
+                <Tooltip />
+                <Bar dataKey="units" fill="#8A4DFF" radius={[8, 8, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </Card>
         <Card>
           <div className="text-sm text-slate-300">AI insights</div>
           <div className="mt-4 space-y-3 text-sm">
-            <p className="rounded-xl bg-white/5 p-3">Demand likely to increase 14% next month for electronics category.</p>
-            <p className="rounded-xl bg-white/5 p-3">Warehouse East is approaching 87% capacity. Balance transfers recommended.</p>
-            <p className="rounded-xl bg-white/5 p-3">Top margin SKU: SF-ULTRA-12 with stable procurement costs.</p>
+            {(overview?.aiInsights ?? []).map((insight) => (
+              <p key={insight} className="rounded-xl bg-white/5 p-3">
+                {insight}
+              </p>
+            ))}
+          </div>
+        </Card>
+      </div>
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Card>
+          <div className="mb-3 text-sm text-slate-300">Recent orders</div>
+          <div className="space-y-2 text-xs">
+            {(overview?.recentOrders ?? []).slice(0, 5).map((order) => (
+              <div key={order.id} className="rounded-xl bg-white/5 p-3">
+                <p className="font-medium">{order.orderNumber}</p>
+                <p className="text-slate-400">
+                  {order.customer} • ${order.amount.toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card>
+          <div className="mb-3 text-sm text-slate-300">Recent stock movements</div>
+          <div className="space-y-2 text-xs">
+            {(overview?.recentMovements ?? []).slice(0, 5).map((item) => (
+              <div key={item.id} className="rounded-xl bg-white/5 p-3">
+                <p className="font-medium">
+                  {item.type} • {item.quantity}
+                </p>
+                <p className="text-slate-400">
+                  {item.productName} • {item.warehouseName}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card>
+          <div className="mb-3 flex items-center gap-2 text-sm text-slate-300">
+            <AlertTriangle className="h-4 w-4 text-amber-300" /> Stock alerts
+          </div>
+          <div className="space-y-2 text-xs">
+            {(overview?.alerts ?? []).slice(0, 5).map((alert) => (
+              <div key={alert.id} className="rounded-xl bg-white/5 p-3">
+                <p className="font-medium">{alert.severity}</p>
+                <p className="text-slate-400">{alert.message}</p>
+              </div>
+            ))}
           </div>
         </Card>
       </div>

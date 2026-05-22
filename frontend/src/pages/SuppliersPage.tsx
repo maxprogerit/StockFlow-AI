@@ -1,98 +1,160 @@
+import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { suppliers, supplierPerformanceTrend } from "@/data/platformData";
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import api from "@/lib/api";
+import { useToastStore } from "@/store/toast";
+import { Plus, Truck } from "lucide-react";
+import { useEffect, useState } from "react";
+
+type Supplier = {
+  id: string;
+  name: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  address?: string;
+  rating?: number;
+  active: boolean;
+  productsCount: number;
+  purchaseOrdersCount: number;
+};
+
+const emptySupplier: Supplier = { id: "", name: "", contactEmail: "", contactPhone: "", address: "", rating: 4, active: true, productsCount: 0, purchaseOrdersCount: 0 };
 
 export default function SuppliersPage() {
+  const toast = useToastStore((s) => s.push);
+  const [items, setItems] = useState<Supplier[]>([]);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<Supplier>(emptySupplier);
+
+  const load = async () => {
+    try {
+      const { data } = await api.get("/suppliers");
+      setItems(data || []);
+    } catch {
+      toast({ title: "Failed to load suppliers", variant: "danger" });
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const save = async () => {
+    if (!form.name.trim()) {
+      toast({ title: "Supplier name is required", variant: "warning" });
+      return;
+    }
+    try {
+      if (form.id) {
+        await api.put(`/suppliers/${form.id}`, form);
+      } else {
+        await api.post("/suppliers", form);
+      }
+      toast({ title: "Supplier saved", variant: "success" });
+      setOpen(false);
+      setForm(emptySupplier);
+      await load();
+    } catch {
+      toast({ title: "Failed to save supplier", variant: "danger" });
+    }
+  };
+
+  const remove = async (id: string) => {
+    try {
+      await api.delete(`/suppliers/${id}`);
+      toast({ title: "Supplier deleted", variant: "success" });
+      await load();
+    } catch {
+      toast({ title: "Delete failed", variant: "danger" });
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <PageHeader title="Supplier Performance Hub" subtitle="Monitor supplier reliability, contracts, and procurement outcomes." />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <PageHeader title="Supplier Performance Hub" subtitle="Real supplier records, contacts, ratings, and procurement history.">
+        <Button
+          className="gap-2"
+          onClick={() => {
+            setForm(emptySupplier);
+            setOpen(true);
+          }}
+        >
+          <Plus className="h-4 w-4" />
+          Add supplier
+        </Button>
+      </PageHeader>
+      {items.length === 0 ? (
+        <EmptyState icon={Truck} title="No suppliers yet" description="Add supplier to link products and purchase orders." />
+      ) : (
         <Card>
-          <p className="text-xs text-slate-400">Active Suppliers</p>
-          <p className="mt-2 text-2xl font-semibold">{suppliers.length}</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-slate-400">Avg Rating</p>
-          <p className="mt-2 text-2xl font-semibold">{(suppliers.reduce((a, b) => a + b.rating, 0) / suppliers.length).toFixed(1)}</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-slate-400">On-time Delivery</p>
-          <p className="mt-2 text-2xl font-semibold">{Math.round(suppliers.reduce((a, b) => a + b.onTimeRate, 0) / suppliers.length)}%</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-slate-400">Active Contracts</p>
-          <p className="mt-2 text-2xl font-semibold">{suppliers.reduce((a, b) => a + b.activeContracts, 0)}</p>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <p className="mb-3 text-sm font-semibold">Delivery Performance Trend</p>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={supplierPerformanceTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#33415544" />
-                <XAxis dataKey="month" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="quality" fill="#2D8CFF" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="delivery" fill="#8A4DFF" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-        <Card>
-          <p className="text-sm font-semibold">Active Contracts</p>
-          <div className="mt-3 space-y-2 text-sm">
-            {suppliers.map((item) => (
-              <div key={item.id} className="rounded-xl bg-white/5 p-3">
-                <p className="font-medium">{item.name}</p>
-                <p className="text-xs text-slate-300">{item.activeContracts} active contracts</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      <Card>
-        <p className="mb-3 text-sm font-semibold">Supplier Management Table</p>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-slate-400">
-              <tr>
-                <th className="pb-2">Supplier</th>
-                <th className="pb-2">Category</th>
-                <th className="pb-2">Contact</th>
-                <th className="pb-2">Rating</th>
-                <th className="pb-2">On-time</th>
-                <th className="pb-2">Reliability</th>
-              </tr>
-            </thead>
-            <tbody>
-              {suppliers.map((item) => (
-                <tr key={item.id} className="border-t border-white/10">
-                  <td className="py-3">
-                    <p className="font-medium">{item.name}</p>
-                    <p className="text-xs text-slate-400">{item.id}</p>
-                  </td>
-                  <td className="py-3">{item.category}</td>
-                  <td className="py-3">{item.contact}</td>
-                  <td className="py-3">{item.rating.toFixed(1)}</td>
-                  <td className="py-3">{item.onTimeRate}%</td>
-                  <td className="py-3">
-                    <Badge variant={item.onTimeRate > 92 ? "success" : item.onTimeRate > 88 ? "warning" : "danger"}>
-                      {item.onTimeRate > 92 ? "Excellent" : item.onTimeRate > 88 ? "Stable" : "At Risk"}
-                    </Badge>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="text-xs uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th className="pb-2">Supplier</th>
+                  <th className="pb-2">Contact</th>
+                  <th className="pb-2">Rating</th>
+                  <th className="pb-2">Products</th>
+                  <th className="pb-2">Purchase Orders</th>
+                  <th className="pb-2">Status</th>
+                  <th className="pb-2 text-right">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.id} className="border-t border-white/10">
+                    <td className="py-3">
+                      <p className="font-medium">{item.name}</p>
+                      <p className="text-xs text-slate-400">{item.address || "-"}</p>
+                    </td>
+                    <td className="py-3 text-xs">
+                      <p>{item.contactEmail || "-"}</p>
+                      <p className="text-slate-400">{item.contactPhone || "-"}</p>
+                    </td>
+                    <td className="py-3">{item.rating?.toFixed(1) ?? "-"}</td>
+                    <td className="py-3">{item.productsCount}</td>
+                    <td className="py-3">{item.purchaseOrdersCount}</td>
+                    <td className="py-3">{item.active ? "Active" : "Inactive"}</td>
+                    <td className="py-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          className="h-8 px-2 text-xs"
+                          onClick={() => {
+                            setForm(item);
+                            setOpen(true);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button variant="outline" className="h-8 px-2 text-xs" onClick={() => void remove(item.id)}>
+                          Delete
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      <Dialog open={open} onClose={() => setOpen(false)} title={form.id ? "Edit Supplier" : "Create Supplier"}>
+        <div className="space-y-3">
+          <Input placeholder="Supplier name" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
+          <Input placeholder="Contact email" value={form.contactEmail || ""} onChange={(e) => setForm((prev) => ({ ...prev, contactEmail: e.target.value }))} />
+          <Input placeholder="Contact phone" value={form.contactPhone || ""} onChange={(e) => setForm((prev) => ({ ...prev, contactPhone: e.target.value }))} />
+          <Input placeholder="Address" value={form.address || ""} onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))} />
+          <Input type="number" step="0.1" placeholder="Rating" value={form.rating || 4} onChange={(e) => setForm((prev) => ({ ...prev, rating: Number(e.target.value) }))} />
+          <Button className="w-full" onClick={() => void save()}>
+            Save supplier
+          </Button>
         </div>
-      </Card>
+      </Dialog>
     </div>
   );
 }

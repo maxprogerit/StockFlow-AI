@@ -1,6 +1,7 @@
 package com.stockflow.backend.controller;
 
 import com.stockflow.backend.dto.dashboard.DashboardMetricsDto;
+import com.stockflow.backend.dto.dashboard.DashboardOverviewDto;
 import com.stockflow.backend.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,6 +17,11 @@ public class DashboardController {
     @GetMapping("/metrics")
     public DashboardMetricsDto metrics() {
         return dashboardService.metrics();
+    }
+
+    @GetMapping("/overview")
+    public DashboardOverviewDto overview() {
+        return dashboardService.overview();
     }
 }
 

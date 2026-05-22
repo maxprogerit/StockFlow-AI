@@ -1,7 +1,9 @@
 package com.stockflow.backend.domain.forecast;
 
 import com.stockflow.backend.common.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.stockflow.backend.domain.product.Product;
+import com.stockflow.backend.domain.user.User;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
@@ -17,6 +19,11 @@ import lombok.Setter;
 @Entity
 @Table(name = "forecasts")
 public class ForecastRecord extends BaseEntity {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id")
+    @JsonIgnore
+    private User owner;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id")
     private Product product;

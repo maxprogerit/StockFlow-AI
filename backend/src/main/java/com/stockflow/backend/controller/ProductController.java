@@ -2,6 +2,7 @@ package com.stockflow.backend.controller;
 
 import com.stockflow.backend.dto.product.ProductDto;
 import com.stockflow.backend.service.ProductService;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -51,6 +52,11 @@ public class ProductController {
     @DeleteMapping("/{id}")
     public void delete(@PathVariable UUID id) {
         productService.delete(id);
+    }
+
+    @GetMapping("/{id}/analytics")
+    public Map<String, Object> analytics(@PathVariable UUID id) {
+        return productService.analytics(id);
     }
 }
 

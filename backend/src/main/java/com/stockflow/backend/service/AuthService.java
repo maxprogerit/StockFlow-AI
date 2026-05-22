@@ -31,12 +31,13 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
+        String email = request.email().toLowerCase();
+        if (userRepository.existsByEmail(email)) {
             throw new IllegalArgumentException("Email already in use");
         }
         User user = new User();
         user.setFullName(request.fullName());
-        user.setEmail(request.email().toLowerCase());
+        user.setEmail(email);
         user.setPassword(passwordEncoder.encode(request.password()));
         user.setRole(Role.MANAGER);
         User saved = userRepository.save(user);
@@ -45,10 +46,11 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(AuthRequest request) {
+        String email = request.email().toLowerCase();
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.email(), request.password())
+                new UsernamePasswordAuthenticationToken(email, request.password())
         );
-        User user = userRepository.findByEmail(request.email().toLowerCase())
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
         return issueTokens(user);
     }

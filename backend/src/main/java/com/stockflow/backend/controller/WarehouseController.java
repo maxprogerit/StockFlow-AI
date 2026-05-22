@@ -1,10 +1,11 @@
 package com.stockflow.backend.controller;
 
 import com.stockflow.backend.domain.warehouse.Warehouse;
-import com.stockflow.backend.repository.WarehouseRepository;
-import com.stockflow.backend.service.CrudService;
+import com.stockflow.backend.dto.warehouse.WarehouseDto;
+import com.stockflow.backend.service.WarehouseService;
 import java.util.List;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,31 +17,27 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/warehouses")
+@RequiredArgsConstructor
 public class WarehouseController {
-    private final CrudService<Warehouse> service;
-
-    public WarehouseController(WarehouseRepository repository) {
-        this.service = new CrudService<>(repository, "Warehouse");
-    }
+    private final WarehouseService service;
 
     @GetMapping
-    public List<Warehouse> list() {
+    public List<WarehouseDto> list() {
         return service.list();
     }
 
     @GetMapping("/{id}")
-    public Warehouse get(@PathVariable UUID id) {
+    public WarehouseDto get(@PathVariable UUID id) {
         return service.get(id);
     }
 
     @PostMapping
-    public Warehouse create(@RequestBody Warehouse warehouse) {
+    public WarehouseDto create(@RequestBody Warehouse warehouse) {
         return service.create(warehouse);
     }
 
     @PutMapping("/{id}")
-    public Warehouse update(@PathVariable UUID id, @RequestBody Warehouse warehouse) {
-        warehouse.setId(id);
+    public WarehouseDto update(@PathVariable UUID id, @RequestBody Warehouse warehouse) {
         return service.update(id, warehouse);
     }
 

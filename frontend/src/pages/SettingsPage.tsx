@@ -3,59 +3,83 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import api from "@/lib/api";
 import { useToastStore } from "@/store/toast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-const tabs = ["Account", "Company", "Notifications", "Appearance", "Security", "API Keys", "Roles", "Billing", "Integrations"] as const;
-type Tab = (typeof tabs)[number];
+type Settings = {
+  companyName: string;
+  companyWebsite?: string;
+  companyAddress?: string;
+  currency: string;
+  timezone: string;
+  notificationsEnabled: boolean;
+  lowStockThresholdDefault: number;
+  forecastHorizonMonths: number;
+  theme: string;
+  apiKeyHint?: string;
+};
 
 export default function SettingsPage() {
-  const pushToast = useToastStore((s) => s.push);
-  const [tab, setTab] = useState<Tab>("Account");
+  const toast = useToastStore((s) => s.push);
+  const [settings, setSettings] = useState<Settings | null>(null);
+
+  useEffect(() => {
+    api
+      .get("/settings")
+      .then((r) => setSettings(r.data))
+      .catch(() => toast({ title: "Failed to load settings", variant: "danger" }));
+  }, []);
+
+  const save = async () => {
+    if (!settings) return;
+    try {
+      await api.put("/settings", settings);
+      toast({ title: "Settings saved", variant: "success" });
+    } catch {
+      toast({ title: "Failed to save settings", variant: "danger" });
+    }
+  };
+
+  if (!settings) return null;
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Platform Settings" subtitle="Configure account, organization, security controls, and integrations." />
-      <Card>
-        <div className="flex flex-wrap gap-2">
-          {tabs.map((item) => (
-            <Button key={item} variant={tab === item ? "default" : "outline"} className="h-8 px-3 text-xs" onClick={() => setTab(item)}>
-              {item}
-            </Button>
-          ))}
-        </div>
-      </Card>
-
+      <PageHeader title="Platform Settings" subtitle="Persisted company and operational settings connected to PostgreSQL." />
       <div className="grid gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2">
-          <p className="mb-3 text-sm font-semibold">{tab} Settings</p>
+          <p className="mb-3 text-sm font-semibold">Company & Preferences</p>
           <div className="grid gap-3 md:grid-cols-2">
-            <Input placeholder="Company name" defaultValue="StockFlow Intelligence GmbH" />
-            <Input placeholder="Primary email" defaultValue="ops@stockflow.ai" />
-            <Select defaultValue="UTC+02:00">
-              <option>UTC+02:00</option>
-              <option>UTC+01:00</option>
-              <option>UTC+00:00</option>
+            <Input value={settings.companyName} onChange={(e) => setSettings((prev) => (prev ? { ...prev, companyName: e.target.value } : prev))} placeholder="Company name" />
+            <Input value={settings.companyWebsite || ""} onChange={(e) => setSettings((prev) => (prev ? { ...prev, companyWebsite: e.target.value } : prev))} placeholder="Company website" />
+            <Input value={settings.companyAddress || ""} onChange={(e) => setSettings((prev) => (prev ? { ...prev, companyAddress: e.target.value } : prev))} placeholder="Company address" />
+            <Select value={settings.currency} onChange={(e) => setSettings((prev) => (prev ? { ...prev, currency: e.target.value } : prev))}>
+              <option>USD</option>
+              <option>EUR</option>
+              <option>GBP</option>
             </Select>
-            <Input placeholder="Webhook endpoint" defaultValue="https://api.stockflow.ai/hooks/inventory" />
+            <Input value={settings.timezone} onChange={(e) => setSettings((prev) => (prev ? { ...prev, timezone: e.target.value } : prev))} placeholder="Timezone" />
+            <Select value={settings.theme} onChange={(e) => setSettings((prev) => (prev ? { ...prev, theme: e.target.value } : prev))}>
+              <option value="dark">dark</option>
+              <option value="light">light</option>
+            </Select>
+            <Input type="number" value={settings.lowStockThresholdDefault} onChange={(e) => setSettings((prev) => (prev ? { ...prev, lowStockThresholdDefault: Number(e.target.value) } : prev))} placeholder="Low stock default" />
+            <Input type="number" value={settings.forecastHorizonMonths} onChange={(e) => setSettings((prev) => (prev ? { ...prev, forecastHorizonMonths: Number(e.target.value) } : prev))} placeholder="Forecast horizon months" />
           </div>
-          <div className="mt-3 rounded-xl bg-white/5 p-3 text-xs text-slate-300">
-            Security policy: MFA enforced, session timeout 30 minutes, JWT rotation enabled.
+          <div className="mt-3 flex gap-2">
+            <Button variant={settings.notificationsEnabled ? "default" : "outline"} onClick={() => setSettings((prev) => (prev ? { ...prev, notificationsEnabled: !prev.notificationsEnabled } : prev))}>
+              Notifications {settings.notificationsEnabled ? "On" : "Off"}
+            </Button>
+            <Button onClick={() => void save()}>Save settings</Button>
           </div>
-          <Button className="mt-4" onClick={() => pushToast({ title: "Settings saved", description: `${tab} preferences updated.`, variant: "success" })}>
-            Save changes
-          </Button>
         </Card>
         <Card>
-          <p className="text-sm font-semibold">Billing</p>
+          <p className="text-sm font-semibold">API & Security</p>
           <div className="mt-3 space-y-2 text-xs text-slate-300">
-            <p className="rounded-xl bg-white/5 p-3">Plan: Enterprise AI</p>
-            <p className="rounded-xl bg-white/5 p-3">Seats: 48 / 60</p>
-            <p className="rounded-xl bg-white/5 p-3">Next invoice: 2026-06-01</p>
+            <p className="rounded-xl bg-white/5 p-3">API key hint: {settings.apiKeyHint || "not set"}</p>
+            <p className="rounded-xl bg-white/5 p-3">User management: admin controlled</p>
+            <p className="rounded-xl bg-white/5 p-3">Role-based permissions enabled</p>
           </div>
-          <Button variant="outline" className="mt-3 w-full">
-            Manage subscription
-          </Button>
         </Card>
       </div>
     </div>
