@@ -46,13 +46,14 @@ services:
       - "${BACKEND_PORT}:${BACKEND_PORT}"
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:${BACKEND_PORT}/api
+        VITE_WS_URL: ws://localhost:${BACKEND_PORT}/ws
     container_name: stockflow-frontend
     depends_on:
       - backend
-    environment:
-      VITE_API_BASE_URL: http://localhost:${BACKEND_PORT}/api
-      VITE_WS_URL: ws://localhost:${BACKEND_PORT}/ws
     ports:
       - "${FRONTEND_PORT}:80"
 

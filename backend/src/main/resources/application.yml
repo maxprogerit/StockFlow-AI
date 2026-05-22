@@ -4,8 +4,8 @@ server:
 spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:stockflow}
-    username: ${DB_USER:stockflow}
-    password: ${DB_PASSWORD:stockflow}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:Max_swiM}
   jpa:
     hibernate:
       ddl-auto: update

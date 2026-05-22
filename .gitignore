@@ -1,0 +1,23 @@
+# Node
+node_modules/
+frontend/dist/
+frontend/tsconfig.tsbuildinfo
+frontend/package-lock.json
+
+# Java / Maven
+backend/target/
+*.class
+*.jar
+
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
