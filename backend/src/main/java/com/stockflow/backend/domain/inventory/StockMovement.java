@@ -1,7 +1,9 @@
 package com.stockflow.backend.domain.inventory;
 
 import com.stockflow.backend.common.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.stockflow.backend.domain.product.Product;
+import com.stockflow.backend.domain.user.User;
 import com.stockflow.backend.domain.warehouse.Warehouse;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -17,6 +19,11 @@ import lombok.Setter;
 @Entity
 @Table(name = "stock_movements")
 public class StockMovement extends BaseEntity {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id")
+    @JsonIgnore
+    private User owner;
+
     private String type;
     private Integer quantity;
     private String referenceNumber;

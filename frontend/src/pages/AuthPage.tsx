@@ -41,6 +41,7 @@ export default function AuthPage({ mode }: { mode: "login" | "register" }) {
             {mode === "login" ? "Sign in" : "Create account"}
           </Button>
           {error && <p className="text-sm text-red-400">{error}</p>}
+          {mode === "login" && <p className="text-xs text-slate-400">Demo account: demo@stockflow.ai / demo123456</p>}
         </form>
       </Card>
     </div>

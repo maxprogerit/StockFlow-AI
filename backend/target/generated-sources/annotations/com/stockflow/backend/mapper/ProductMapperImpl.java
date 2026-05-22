@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 @Generated(
     value = "org.mapstruct.ap.MappingProcessor",
-    date = "2026-05-22T16:52:51+0200",
+    date = "2026-05-22T17:53:51+0200",
     comments = "version: 1.5.5.Final, compiler: Eclipse JDT (IDE) 3.46.0.v20260407-0427, environment: Java 21.0.10 (Eclipse Adoptium)"
 )
 @Component
@@ -26,15 +26,15 @@ public class ProductMapperImpl implements ProductMapper {
 
         productDto.setCategoryId( productCategoryId( product ) );
         productDto.setSupplierId( productSupplierId( product ) );
-        productDto.setBarcode( product.getBarcode() );
-        productDto.setCost( product.getCost() );
-        productDto.setDescription( product.getDescription() );
         productDto.setId( product.getId() );
-        productDto.setImageUrl( product.getImageUrl() );
-        productDto.setLowStockThreshold( product.getLowStockThreshold() );
-        productDto.setName( product.getName() );
-        productDto.setPrice( product.getPrice() );
         productDto.setSku( product.getSku() );
+        productDto.setName( product.getName() );
+        productDto.setDescription( product.getDescription() );
+        productDto.setImageUrl( product.getImageUrl() );
+        productDto.setPrice( product.getPrice() );
+        productDto.setCost( product.getCost() );
+        productDto.setLowStockThreshold( product.getLowStockThreshold() );
+        productDto.setBarcode( product.getBarcode() );
 
         return productDto;
     }
@@ -47,14 +47,14 @@ public class ProductMapperImpl implements ProductMapper {
 
         Product product = new Product();
 
-        product.setBarcode( dto.getBarcode() );
-        product.setCost( dto.getCost() );
+        product.setSku( dto.getSku() );
+        product.setName( dto.getName() );
         product.setDescription( dto.getDescription() );
         product.setImageUrl( dto.getImageUrl() );
-        product.setLowStockThreshold( dto.getLowStockThreshold() );
-        product.setName( dto.getName() );
         product.setPrice( dto.getPrice() );
-        product.setSku( dto.getSku() );
+        product.setCost( dto.getCost() );
+        product.setLowStockThreshold( dto.getLowStockThreshold() );
+        product.setBarcode( dto.getBarcode() );
 
         return product;
     }

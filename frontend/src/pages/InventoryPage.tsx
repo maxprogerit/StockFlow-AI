@@ -1,207 +1,321 @@
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
-import { StatCard } from "@/components/common/StatCard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useSimulatedLoading } from "@/hooks/useSimulatedLoading";
-import { inventoryItems, stockMovement, type InventoryItem } from "@/data/platformData";
+import api from "@/lib/api";
 import { useToastStore } from "@/store/toast";
-import { AlertTriangle, ArrowLeftRight, Boxes, Pencil, Search } from "lucide-react";
-import { useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ArrowLeftRight, Boxes, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-const pageSize = 5;
+type InventoryItem = {
+  id: string;
+  productId: string;
+  productName: string;
+  sku: string;
+  barcode: string;
+  category?: string;
+  warehouseId: string;
+  warehouseName: string;
+  quantity: number;
+  reserved: number;
+  reorderLevel: number;
+  status: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
+};
+
+type Warehouse = { id: string; name: string };
+type Product = { id: string; name: string };
+type Movement = { id: string; type: string; quantity: number; productName: string; warehouseName: string; occurredAt: string };
+
+const inventoryForm = { productId: "", warehouseId: "", quantity: 0, reserved: 0, batchNumber: "" };
 
 export default function InventoryPage() {
-  const loading = useSimulatedLoading();
   const toast = useToastStore((s) => s.push);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All");
-  const [warehouse, setWarehouse] = useState("All");
-  const [page, setPage] = useState(1);
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [movements, setMovements] = useState<Movement[]>([]);
+  const [query, setQuery] = useState("");
+  const [warehouseId, setWarehouseId] = useState("");
+  const [productId, setProductId] = useState("");
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [adjustOpen, setAdjustOpen] = useState(false);
   const [selected, setSelected] = useState<InventoryItem | null>(null);
-  const [editQty, setEditQty] = useState(0);
+  const [newQty, setNewQty] = useState(0);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState(inventoryForm);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transfer, setTransfer] = useState({ productId: "", fromWarehouseId: "", toWarehouseId: "", quantity: 0 });
 
-  const categories = useMemo(() => ["All", ...new Set(inventoryItems.map((item) => item.category))], []);
-  const warehouses = useMemo(() => ["All", ...new Set(inventoryItems.map((item) => item.warehouse))], []);
-
-  const filtered = useMemo(
-    () =>
-      inventoryItems.filter((item) => {
-        const bySearch = `${item.name} ${item.sku} ${item.barcode}`.toLowerCase().includes(search.toLowerCase());
-        const byCategory = category === "All" || item.category === category;
-        const byWarehouse = warehouse === "All" || item.warehouse === warehouse;
-        return bySearch && byCategory && byWarehouse;
-      }),
-    [search, category, warehouse]
-  );
-
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const lowStockCount = inventoryItems.filter((item) => item.quantity <= item.reorderPoint).length;
-  const stockValue = inventoryItems.reduce((acc, item) => acc + item.value, 0);
-
-  const openEdit = (item: InventoryItem) => {
-    setSelected(item);
-    setEditQty(item.quantity);
+  const load = async () => {
+    try {
+      const [{ data: inventory }, { data: wh }, { data: prod }, { data: mv }] = await Promise.all([
+        api.get("/inventory", { params: { q: query, warehouseId: warehouseId || undefined, productId: productId || undefined, page, size: 10 } }),
+        api.get("/warehouses"),
+        api.get("/products", { params: { page: 0, size: 200 } }),
+        api.get("/inventory/movements")
+      ]);
+      setItems(inventory.content || []);
+      setTotalPages(Math.max(1, inventory.totalPages || 1));
+      setWarehouses(wh || []);
+      setProducts((prod.content || []).map((item: any) => ({ id: item.id, name: item.name })));
+      setMovements(mv || []);
+    } catch {
+      toast({ title: "Failed to load inventory module", variant: "danger" });
+    }
   };
 
-  const submitQuickEdit = () => {
+  useEffect(() => {
+    void load();
+  }, [query, warehouseId, productId, page]);
+
+  const lowStock = useMemo(() => items.filter((item) => item.status !== "IN_STOCK").length, [items]);
+
+  const adjustQuantity = async () => {
     if (!selected) return;
-    toast({ title: "Inventory updated", description: `${selected.name} quantity set to ${editQty}.`, variant: "success" });
-    setSelected(null);
+    try {
+      await api.patch(`/inventory/${selected.id}/quantity`, { quantity: newQty });
+      toast({ title: "Quantity updated", variant: "success" });
+      setAdjustOpen(false);
+      await load();
+    } catch {
+      toast({ title: "Failed to update quantity", variant: "danger" });
+    }
+  };
+
+  const createRecord = async () => {
+    if (!createForm.productId || !createForm.warehouseId) {
+      toast({ title: "Product and warehouse are required", variant: "warning" });
+      return;
+    }
+    try {
+      await api.post("/inventory", createForm);
+      toast({ title: "Inventory record created", variant: "success" });
+      setCreateOpen(false);
+      setCreateForm(inventoryForm);
+      await load();
+    } catch {
+      toast({ title: "Failed to create inventory record", variant: "danger" });
+    }
+  };
+
+  const doTransfer = async () => {
+    if (!transfer.productId || !transfer.fromWarehouseId || !transfer.toWarehouseId) {
+      toast({ title: "Product and both warehouses are required", variant: "warning" });
+      return;
+    }
+    try {
+      await api.post("/inventory/transfer", transfer);
+      toast({ title: "Stock transferred", variant: "success" });
+      setTransferOpen(false);
+      await load();
+    } catch (error: any) {
+      toast({ title: error.response?.data?.error ?? "Transfer failed", variant: "danger" });
+    }
   };
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Inventory Intelligence" subtitle="Track stock, movement velocity, and replenishment risks in real time." />
-
-      {loading ? (
-        <div className="grid gap-4 md:grid-cols-3">
-          <Skeleton className="h-28" />
-          <Skeleton className="h-28" />
-          <Skeleton className="h-28" />
+      <PageHeader title="Inventory Intelligence" subtitle="Live inventory records, quantity controls, transfer workflows, and movement history.">
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setCreateOpen(true)}>
+            Create inventory
+          </Button>
+          <Button className="gap-2" onClick={() => setTransferOpen(true)}>
+            <ArrowLeftRight className="h-4 w-4" />
+            Transfer stock
+          </Button>
         </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-3">
-          <StatCard label="Active SKUs" value={`${inventoryItems.length}`} change="+12 this week" icon={Boxes} />
-          <StatCard label="Low Stock Risk" value={`${lowStockCount}`} change="-3 from yesterday" icon={AlertTriangle} />
-          <StatCard label="Inventory Value" value={`$${stockValue.toLocaleString()}`} change="+4.2% MoM" icon={ArrowLeftRight} />
-        </div>
-      )}
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <div className="mb-4 grid gap-3 md:grid-cols-4">
-            <div className="relative md:col-span-2">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <Input className="pl-9" placeholder="Search by product, SKU, barcode..." value={search} onChange={(e) => setSearch(e.target.value)} />
-            </div>
-            <Select value={category} onChange={(e) => setCategory(e.target.value)}>
-              {categories.map((option) => (
-                <option key={option}>{option}</option>
-              ))}
-            </Select>
-            <Select value={warehouse} onChange={(e) => setWarehouse(e.target.value)}>
-              {warehouses.map((option) => (
-                <option key={option}>{option}</option>
-              ))}
-            </Select>
+      </PageHeader>
+      <Card>
+        <div className="grid gap-3 md:grid-cols-4">
+          <div className="relative md:col-span-2">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Input className="pl-9" placeholder="Search SKU, name, barcode..." value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
-          {paginated.length === 0 ? (
-            <EmptyState icon={Search} title="No inventory matches current filters" description="Try broadening categories or warehouse scope to see stock records." />
-          ) : (
+          <Select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+            <option value="">All warehouses</option>
+            {warehouses.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </Select>
+          <Select value={productId} onChange={(e) => setProductId(e.target.value)}>
+            <option value="">All products</option>
+            {products.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </Card>
+
+      {items.length === 0 ? (
+        <EmptyState icon={Boxes} title="No inventory records yet" description="Add inventory once products and warehouses are created." />
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-3">
+          <Card className="xl:col-span-2">
+            <p className="mb-3 text-sm font-semibold">
+              Inventory Table • Low stock: <span className="text-amber-300">{lowStock}</span>
+            </p>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="text-xs uppercase tracking-wide text-slate-400">
                   <tr>
-                    <th className="pb-2">Item</th>
+                    <th className="pb-2">Product</th>
                     <th className="pb-2">SKU / Barcode</th>
                     <th className="pb-2">Warehouse</th>
                     <th className="pb-2">Qty</th>
                     <th className="pb-2">Status</th>
-                    <th className="pb-2 text-right">Actions</th>
+                    <th className="pb-2 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginated.map((item) => {
-                    const low = item.quantity <= item.reorderPoint;
-                    return (
-                      <tr key={item.id} className="border-t border-white/10">
-                        <td className="py-3">
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-xs text-slate-400">{item.category}</p>
-                        </td>
-                        <td className="py-3 text-xs">
-                          <p>{item.sku}</p>
-                          <p className="text-slate-400">{item.barcode}</p>
-                        </td>
-                        <td className="py-3">{item.warehouse}</td>
-                        <td className="py-3">{item.quantity}</td>
-                        <td className="py-3">
-                          <span className={`rounded-full px-2 py-1 text-xs ${low ? "bg-red-500/20 text-red-300" : "bg-emerald-500/20 text-emerald-300"}`}>{low ? "Low stock" : "Healthy"}</span>
-                        </td>
-                        <td className="py-3 text-right">
-                          <Button variant="outline" className="h-8 px-2 text-xs" onClick={() => openEdit(item)}>
-                            <Pencil className="mr-1 h-3 w-3" />
-                            Quick edit
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {items.map((item) => (
+                    <tr key={item.id} className="border-t border-white/10">
+                      <td className="py-3">
+                        <p className="font-medium">{item.productName}</p>
+                        <p className="text-xs text-slate-400">{item.category || "Uncategorized"}</p>
+                      </td>
+                      <td className="py-3 text-xs">
+                        <p>{item.sku}</p>
+                        <p className="text-slate-400">{item.barcode}</p>
+                      </td>
+                      <td className="py-3">{item.warehouseName}</td>
+                      <td className="py-3">{item.quantity}</td>
+                      <td className="py-3">
+                        <span className={`rounded-full px-2 py-1 text-xs ${item.status === "OUT_OF_STOCK" ? "bg-red-500/20 text-red-300" : item.status === "LOW_STOCK" ? "bg-amber-500/20 text-amber-300" : "bg-emerald-500/20 text-emerald-300"}`}>{item.status.replaceAll("_", " ")}</span>
+                      </td>
+                      <td className="py-3 text-right">
+                        <Button
+                          variant="outline"
+                          className="h-8 px-2 text-xs"
+                          onClick={() => {
+                            setSelected(item);
+                            setNewQty(item.quantity);
+                            setAdjustOpen(true);
+                          }}
+                        >
+                          Adjust
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
-          )}
-          <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
-            <p>
-              Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, filtered.length)} of {filtered.length}
-            </p>
-            <div className="flex gap-2">
-              <Button variant="outline" className="h-8 px-2 text-xs" onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            <div className="mt-3 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setPage((p) => Math.max(0, p - 1))}>
                 Prev
               </Button>
-              <Button variant="outline" className="h-8 px-2 text-xs" onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+              <Button variant="outline" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}>
                 Next
               </Button>
             </div>
-          </div>
-        </Card>
-
-        <div className="space-y-4">
+          </Card>
           <Card>
-            <p className="text-sm font-semibold">Recent Stock Changes</p>
-            <div className="mt-3 space-y-2 text-sm">
-              {inventoryItems.slice(0, 4).map((item) => (
+            <p className="mb-3 text-sm font-semibold">Recent Stock Movements</p>
+            <div className="space-y-2 text-xs">
+              {movements.slice(0, 8).map((item) => (
                 <div key={item.id} className="rounded-xl bg-white/5 p-3">
-                  <p className="font-medium">{item.name}</p>
-                  <p className="text-xs text-slate-400">
-                    {item.lastMovement} • {item.warehouse}
+                  <p className="font-medium">
+                    {item.type} • {item.quantity}
+                  </p>
+                  <p className="text-slate-400">
+                    {item.productName} • {item.warehouseName}
                   </p>
                 </div>
               ))}
             </div>
           </Card>
-          <Card>
-            <p className="text-sm font-semibold">Movement History</p>
-            <div className="mt-3 space-y-2 text-xs text-slate-300">
-              <p>Inbound shipment +320 units (Berlin Hub)</p>
-              <p>Cross-dock transfer 54 units (Prague → Milan)</p>
-              <p>Outbound dispatch 210 units (Warsaw Dock)</p>
-              <p>Emergency restock order generated for SCM-1930</p>
-            </div>
-          </Card>
         </div>
-      </div>
+      )}
 
       <Card>
-        <p className="mb-3 text-sm font-semibold">Animated Stock Movement</p>
-        <div className="h-72">
+        <p className="mb-3 text-sm font-semibold">Stock by Product</p>
+        <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stockMovement}>
+            <BarChart data={items.map((item) => ({ name: item.productName, qty: item.quantity }))}>
               <CartesianGrid strokeDasharray="3 3" stroke="#33415544" />
-              <XAxis dataKey="day" stroke="#94a3b8" />
+              <XAxis dataKey="name" stroke="#94a3b8" />
               <YAxis stroke="#94a3b8" />
               <Tooltip />
-              <Legend />
-              <Bar dataKey="inbound" fill="#2D8CFF" radius={[8, 8, 0, 0]} animationDuration={950} />
-              <Bar dataKey="outbound" fill="#8A4DFF" radius={[8, 8, 0, 0]} animationDuration={950} />
+              <Bar dataKey="qty" fill="#2D8CFF" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </Card>
 
-      <Dialog open={Boolean(selected)} title="Quick Edit Quantity" onClose={() => setSelected(null)}>
+      <Dialog open={adjustOpen} onClose={() => setAdjustOpen(false)} title="Adjust Quantity">
         <div className="space-y-3">
-          <p className="text-sm text-slate-300">{selected?.name}</p>
-          <Input type="number" min={0} value={editQty} onChange={(e) => setEditQty(Number(e.target.value))} />
-          <Button className="w-full" onClick={submitQuickEdit}>
-            Save change
+          <p className="text-sm text-slate-300">{selected?.productName}</p>
+          <Input type="number" value={newQty} onChange={(e) => setNewQty(Number(e.target.value))} />
+          <Button className="w-full" onClick={() => void adjustQuantity()}>
+            Save
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title="Create Inventory Record">
+        <div className="space-y-3">
+          <Select value={createForm.productId} onChange={(e) => setCreateForm((prev) => ({ ...prev, productId: e.target.value }))}>
+            <option value="">Select product</option>
+            {products.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </Select>
+          <Select value={createForm.warehouseId} onChange={(e) => setCreateForm((prev) => ({ ...prev, warehouseId: e.target.value }))}>
+            <option value="">Select warehouse</option>
+            {warehouses.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </Select>
+          <Input type="number" placeholder="Quantity" value={createForm.quantity} onChange={(e) => setCreateForm((prev) => ({ ...prev, quantity: Number(e.target.value) }))} />
+          <Button className="w-full" onClick={() => void createRecord()}>
+            Create
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog open={transferOpen} onClose={() => setTransferOpen(false)} title="Transfer Stock">
+        <div className="space-y-3">
+          <Select value={transfer.productId} onChange={(e) => setTransfer((prev) => ({ ...prev, productId: e.target.value }))}>
+            <option value="">Select product</option>
+            {products.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </Select>
+          <Select value={transfer.fromWarehouseId} onChange={(e) => setTransfer((prev) => ({ ...prev, fromWarehouseId: e.target.value }))}>
+            <option value="">From warehouse</option>
+            {warehouses.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </Select>
+          <Select value={transfer.toWarehouseId} onChange={(e) => setTransfer((prev) => ({ ...prev, toWarehouseId: e.target.value }))}>
+            <option value="">To warehouse</option>
+            {warehouses.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </Select>
+          <Input type="number" placeholder="Quantity" value={transfer.quantity} onChange={(e) => setTransfer((prev) => ({ ...prev, quantity: Number(e.target.value) }))} />
+          <Button className="w-full" onClick={() => void doTransfer()}>
+            Transfer
           </Button>
         </div>
       </Dialog>

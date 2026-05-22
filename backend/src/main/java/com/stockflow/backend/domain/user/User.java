@@ -29,5 +29,9 @@ public class User extends BaseEntity {
 
     @Column(nullable = false)
     private boolean enabled = true;
+
+    private String avatarUrl;
+    private String timezone;
+    private String jobTitle;
 }
 

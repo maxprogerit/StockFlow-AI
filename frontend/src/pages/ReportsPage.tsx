@@ -1,140 +1,110 @@
+import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { reportHistory } from "@/data/platformData";
-import { FileSpreadsheet, FileText, History, PlayCircle } from "lucide-react";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import api from "@/lib/api";
+import { useToastStore } from "@/store/toast";
+import { FileText, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+
+type Report = { id: string; name: string; type: string; status: string; fileUrl: string; generatedAt: string };
 
 export default function ReportsPage() {
+  const toast = useToastStore((s) => s.push);
+  const [items, setItems] = useState<Report[]>([]);
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [type, setType] = useState("PDF");
+
+  const load = async () => {
+    try {
+      const { data } = await api.get("/reports");
+      setItems(data || []);
+    } catch {
+      toast({ title: "Failed to load reports", variant: "danger" });
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const create = async () => {
+    try {
+      await api.post("/reports", { name, type });
+      toast({ title: "Report generated", variant: "success" });
+      setOpen(false);
+      setName("");
+      await load();
+    } catch {
+      toast({ title: "Failed to generate report", variant: "danger" });
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <PageHeader title="Report Generation Center" subtitle="Generate, schedule, and download executive analytics and operational reports." />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-slate-400">PDF Reports</p>
-            <p className="mt-2 text-2xl font-semibold">124</p>
-          </div>
-          <FileText className="h-5 w-5 text-neon-blue" />
-        </Card>
-        <Card className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-slate-400">Excel Reports</p>
-            <p className="mt-2 text-2xl font-semibold">87</p>
-          </div>
-          <FileSpreadsheet className="h-5 w-5 text-neon-purple" />
-        </Card>
-        <Card className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-slate-400">Scheduled Jobs</p>
-            <p className="mt-2 text-2xl font-semibold">12</p>
-          </div>
-          <PlayCircle className="h-5 w-5 text-emerald-300" />
-        </Card>
-        <Card className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-slate-400">Run History</p>
-            <p className="mt-2 text-2xl font-semibold">{reportHistory.length}</p>
-          </div>
-          <History className="h-5 w-5 text-amber-300" />
-        </Card>
-      </div>
+      <PageHeader title="Report Generation Center" subtitle="Generate inventory, warehouse, sales, and supplier reports from live data.">
+        <Button className="gap-2" onClick={() => setOpen(true)}>
+          <Plus className="h-4 w-4" />
+          Generate report
+        </Button>
+      </PageHeader>
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <p className="mb-3 text-sm font-semibold">Report Output Summary</p>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={[{ week: "W1", reports: 18 }, { week: "W2", reports: 22 }, { week: "W3", reports: 27 }, { week: "W4", reports: 31 }]}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#33415544" />
-                <XAxis dataKey="week" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip />
-                <Area dataKey="reports" stroke="#2D8CFF" fill="#2D8CFF33" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
+      {items.length === 0 ? (
+        <EmptyState icon={FileText} title="No reports yet" description="Generate first report to populate report history and downloads." />
+      ) : (
         <Card>
-          <p className="text-sm font-semibold">Analytics Reports</p>
-          <div className="mt-3 space-y-2">
-            <Button className="w-full justify-between">
-              Revenue intelligence report <FileText className="h-4 w-4" />
-            </Button>
-            <Button className="w-full justify-between" variant="outline">
-              Profit margin dashboard <FileSpreadsheet className="h-4 w-4" />
-            </Button>
-          </div>
-        </Card>
-        <Card>
-          <p className="text-sm font-semibold">Inventory Reports</p>
-          <div className="mt-3 space-y-2">
-            <Button className="w-full justify-between">Stock valuation snapshot</Button>
-            <Button className="w-full justify-between" variant="outline">
-              Low stock risk matrix
-            </Button>
-          </div>
-        </Card>
-        <Card>
-          <p className="text-sm font-semibold">Warehouse Reports</p>
-          <div className="mt-3 space-y-2">
-            <Button className="w-full justify-between">Capacity utilization summary</Button>
-            <Button className="w-full justify-between" variant="outline">
-              Dock performance report
-            </Button>
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <p className="mb-3 text-sm font-semibold">Report History</p>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="text-xs uppercase tracking-wide text-slate-400">
                 <tr>
                   <th className="pb-2">Report</th>
                   <th className="pb-2">Type</th>
-                  <th className="pb-2">Generated By</th>
-                  <th className="pb-2">Generated At</th>
                   <th className="pb-2">Status</th>
+                  <th className="pb-2">Generated At</th>
+                  <th className="pb-2 text-right">Download</th>
                 </tr>
               </thead>
               <tbody>
-                {reportHistory.map((report) => (
-                  <tr key={report.id} className="border-t border-white/10">
-                    <td className="py-3">
-                      <p className="font-medium">{report.name}</p>
-                      <p className="text-xs text-slate-400">{report.id}</p>
+                {items.map((item) => (
+                  <tr key={item.id} className="border-t border-white/10">
+                    <td className="py-3 font-medium">{item.name}</td>
+                    <td className="py-3">{item.type}</td>
+                    <td className="py-3">{item.status}</td>
+                    <td className="py-3">{item.generatedAt ? new Date(item.generatedAt).toLocaleString() : "-"}</td>
+                    <td className="py-3 text-right">
+                      <Button variant="outline" className="h-8 px-2 text-xs" asChild>
+                        <a href={item.fileUrl || "#"} target="_blank" rel="noreferrer">
+                          Download
+                        </a>
+                      </Button>
                     </td>
-                    <td className="py-3">{report.type}</td>
-                    <td className="py-3">{report.generatedBy}</td>
-                    <td className="py-3">{report.generatedAt}</td>
-                    <td className="py-3">{report.status}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </Card>
-        <Card className="xl:col-span-2">
-          <p className="text-sm font-semibold">Scheduled Reports</p>
-          <div className="mt-3 space-y-2 text-xs text-slate-300">
-            <p className="rounded-xl bg-white/5 p-3">Daily ops digest - 07:00 UTC</p>
-            <p className="rounded-xl bg-white/5 p-3">Weekly forecasting pack - Monday</p>
-            <p className="rounded-xl bg-white/5 p-3">Monthly executive KPI deck - 1st day</p>
+      )}
+
+      <Dialog open={open} onClose={() => setOpen(false)} title="Generate Report">
+        <div className="space-y-3">
+          <Input placeholder="Report name" value={name} onChange={(e) => setName(e.target.value)} />
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant={type === "PDF" ? "default" : "outline"} onClick={() => setType("PDF")}>
+              PDF
+            </Button>
+            <Button variant={type === "EXCEL" ? "default" : "outline"} onClick={() => setType("EXCEL")}>
+              Excel
+            </Button>
           </div>
-          <Button className="mt-3 w-full">Create schedule</Button>
-        </Card>
-        <Card>
-          <p className="text-sm font-semibold">Downloadable Preview</p>
-          <div className="mt-3 rounded-2xl border border-white/10 bg-gradient-to-br from-neon-blue/10 to-neon-purple/10 p-4">
-            <p className="font-medium">Q2 Inventory Forecast Book</p>
-            <p className="mt-1 text-xs text-slate-300">27 pages • PDF • Generated by AI Analyst</p>
-            <Button className="mt-3 w-full">Open preview</Button>
-          </div>
-        </Card>
-      </div>
+          <Button className="w-full" onClick={() => void create()}>
+            Generate
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }
