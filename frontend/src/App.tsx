@@ -1,7 +1,17 @@
 import { AppShell } from "@/components/layout/AppShell";
 import DashboardPage from "@/pages/DashboardPage";
 import AuthPage from "@/pages/AuthPage";
-import { SimplePage } from "@/pages/SimplePage";
+import InventoryPage from "@/pages/InventoryPage";
+import WarehousesPage from "@/pages/WarehousesPage";
+import ProductsPage from "@/pages/ProductsPage";
+import OrdersPage from "@/pages/OrdersPage";
+import AnalyticsPage from "@/pages/AnalyticsPage";
+import ForecastingPage from "@/pages/ForecastingPage";
+import SuppliersPage from "@/pages/SuppliersPage";
+import AlertsPage from "@/pages/AlertsPage";
+import ReportsPage from "@/pages/ReportsPage";
+import SettingsPage from "@/pages/SettingsPage";
+import ProfilePage from "@/pages/ProfilePage";
 import { useAuthStore } from "@/store/auth";
 import type { ReactElement } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
@@ -17,27 +27,27 @@ export default function App() {
       <Route path="/login" element={<AuthPage mode="login" />} />
       <Route path="/register" element={<AuthPage mode="register" />} />
       <Route
-        path="*"
+        path="/"
         element={
           <Protected>
-            <AppShell>
-              <Routes>
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/inventory" element={<SimplePage title="Inventory" subtitle="Batch tracking, low-stock thresholds, barcode workflows, and stock movement feed." />} />
-                <Route path="/warehouses" element={<SimplePage title="Warehouses" subtitle="Capacity utilization, location overview, and inventory distribution analytics." />} />
-                <Route path="/products" element={<SimplePage title="Products" subtitle="Catalog management, pricing and cost analysis, supplier-linked product intelligence." />} />
-                <Route path="/orders" element={<SimplePage title="Orders" subtitle="Purchase and customer orders with lifecycle and shipment state monitoring." />} />
-                <Route path="/analytics" element={<SimplePage title="Analytics" subtitle="Revenue, turnover, margin, and multi-period trend reporting." />} />
-                <Route path="/forecasting" element={<SimplePage title="Forecasting" subtitle="AI demand forecasts, restock recommendations, and seasonal trend predictions." />} />
-                <Route path="/suppliers" element={<SimplePage title="Suppliers" subtitle="Supplier performance, lead-time reliability, and contact management." />} />
-                <Route path="/alerts" element={<SimplePage title="Alerts" subtitle="Real-time smart notifications, low stock warnings, and warehouse incident timeline." />} />
-                <Route path="/reports" element={<SimplePage title="Reports" subtitle="PDF and Excel exports, scheduled report pipelines, and financial reporting snapshots." />} />
-                <Route path="/settings" element={<SimplePage title="Settings" subtitle="Profile, company settings, user roles, notification preferences, and API key controls." />} />
-              </Routes>
-            </AppShell>
+            <AppShell />
           </Protected>
         }
-      />
+      >
+        <Route index element={<DashboardPage />} />
+        <Route path="inventory" element={<InventoryPage />} />
+        <Route path="warehouses" element={<WarehousesPage />} />
+        <Route path="products" element={<ProductsPage />} />
+        <Route path="orders" element={<OrdersPage />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
+        <Route path="forecasting" element={<ForecastingPage />} />
+        <Route path="suppliers" element={<SuppliersPage />} />
+        <Route path="alerts" element={<AlertsPage />} />
+        <Route path="reports" element={<ReportsPage />} />
+        <Route path="settings" element={<SettingsPage />} />
+        <Route path="profile" element={<ProfilePage />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

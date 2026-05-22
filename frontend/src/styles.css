@@ -12,3 +12,18 @@ body {
   @apply border border-white/10 bg-white/5 backdrop-blur-xl shadow-glass;
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2d8cff66 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #2d8cff88, #8a4dff88);
+  border-radius: 999px;
+}
+

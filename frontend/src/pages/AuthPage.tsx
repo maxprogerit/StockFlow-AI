@@ -9,16 +9,22 @@ export default function AuthPage({ mode }: { mode: "login" | "register" }) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const setSession = useAuthStore((s) => s.setSession);
   const navigate = useNavigate();
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const url = mode === "login" ? "/auth/login" : "/auth/register";
-    const payload = mode === "login" ? { email, password } : { fullName, email, password };
-    const { data } = await api.post(url, payload);
-    setSession(data);
-    navigate("/");
+    setError(null);
+    try {
+      const url = mode === "login" ? "/auth/login" : "/auth/register";
+      const payload = mode === "login" ? { email, password } : { fullName, email, password };
+      const { data } = await api.post(url, payload);
+      setSession(data);
+      navigate("/");
+    } catch (err: any) {
+      setError(err.response?.data?.error ?? "Something went wrong");
+    }
   };
 
   return (
@@ -34,6 +40,7 @@ export default function AuthPage({ mode }: { mode: "login" | "register" }) {
           <Button type="submit" className="w-full">
             {mode === "login" ? "Sign in" : "Create account"}
           </Button>
+          {error && <p className="text-sm text-red-400">{error}</p>}
         </form>
       </Card>
     </div>
