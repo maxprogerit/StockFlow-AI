@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +33,7 @@ public class DashboardService {
     private final AlertRepository alertRepository;
     private final CurrentUserService currentUserService;
 
+    @Transactional(readOnly = true)
     public DashboardMetricsDto metrics() {
         UUID ownerId = currentUserService.currentUserId();
         long lowStock = inventoryRepository.findByOwnerId(ownerId).stream()
@@ -50,6 +52,7 @@ public class DashboardService {
         );
     }
 
+    @Transactional(readOnly = true)
     public DashboardOverviewDto overview() {
         UUID ownerId = currentUserService.currentUserId();
         List<Inventory> inventory = inventoryRepository.findByOwnerId(ownerId);

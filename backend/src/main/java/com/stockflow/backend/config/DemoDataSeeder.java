@@ -34,6 +34,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -60,6 +61,7 @@ public class DemoDataSeeder implements CommandLineRunner {
     private final AppSettingsRepository appSettingsRepository;
 
     @Override
+    @Transactional
     public void run(String... args) {
         if (userRepository.findByEmail("demo@stockflow.ai").isPresent()) {
             return;

@@ -190,7 +190,7 @@ export default function InventoryPage() {
                       <td className="py-3">{item.warehouseName}</td>
                       <td className="py-3">{item.quantity}</td>
                       <td className="py-3">
-                        <span className={`rounded-full px-2 py-1 text-xs ${item.status === "OUT_OF_STOCK" ? "bg-red-500/20 text-red-300" : item.status === "LOW_STOCK" ? "bg-amber-500/20 text-amber-300" : "bg-emerald-500/20 text-emerald-300"}`}>{item.status.replaceAll("_", " ")}</span>
+                        <span className={`rounded-full px-2 py-1 text-xs ${item.status === "OUT_OF_STOCK" ? "bg-red-500/20 text-red-300" : item.status === "LOW_STOCK" ? "bg-amber-500/20 text-amber-300" : "bg-emerald-500/20 text-emerald-300"}`}>{item.status.replace(/_/g, " ")}</span>
                       </td>
                       <td className="py-3 text-right">
                         <Button

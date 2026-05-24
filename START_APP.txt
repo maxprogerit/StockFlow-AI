@@ -1,0 +1,104 @@
+========================================
+  STOCKFLOW AI — HOW TO START THE APP
+========================================
+
+All commands must be run from the project root folder:
+  C:\Users\Maxim\VS Code projects\StockFlow AI
+
+
+----------------------------------------
+  FIRST TIME / FRESH START
+----------------------------------------
+
+1. Make sure Docker Desktop is running.
+
+2. Copy the example env file if .env doesn't exist yet:
+   cp .env.example .env
+
+3. Build and start all containers (postgres, backend, ml-service, frontend):
+   docker compose up --build
+
+4. Wait until you see "Started StockflowApplication" in the logs.
+
+5. Open the app:
+   http://localhost:5173
+
+
+----------------------------------------
+  NORMAL RESTART (no code changes)
+----------------------------------------
+
+Stop everything:
+   docker compose down
+
+Start again:
+   docker compose up
+
+Or stop + start in one command:
+   docker compose down && docker compose up
+
+
+----------------------------------------
+  RESTART AFTER CODE CHANGES
+----------------------------------------
+
+Rebuild all services and start:
+   docker compose down && docker compose up --build
+
+Rebuild only one service (faster), e.g. backend:
+   docker compose up --build backend
+
+
+----------------------------------------
+  USEFUL COMMANDS
+----------------------------------------
+
+See all running containers:
+   docker compose ps
+
+Watch live logs for all services:
+   docker compose logs -f
+
+Watch logs for one service only:
+   docker compose logs -f backend
+   docker compose logs -f frontend
+   docker compose logs -f postgres
+   docker compose logs -f ml-service
+
+Stop all containers (keeps data):
+   docker compose down
+
+Stop all containers AND delete the database volume (wipes all data):
+   docker compose down -v
+
+Restart a single container without rebuild:
+   docker compose restart backend
+
+
+----------------------------------------
+  PORTS
+----------------------------------------
+
+Frontend  →  http://localhost:5173
+Backend   →  http://localhost:8080
+ML Service→  http://localhost:8000
+Postgres  →  localhost:5432  (DB: stockflow, User: stockflow)
+
+
+----------------------------------------
+  IF SOMETHING IS BROKEN
+----------------------------------------
+
+1. Hard reset — stop everything, delete volumes, rebuild from scratch:
+   docker compose down -v
+   docker compose up --build
+
+2. If a port is already in use, find what is using it (e.g. port 8080):
+   netstat -ano | findstr :8080
+   Then kill the process with that PID:
+   taskkill /PID <PID> /F
+
+3. If Docker Desktop is stuck, restart it from the system tray,
+   then run: docker compose up --build
+
+========================================

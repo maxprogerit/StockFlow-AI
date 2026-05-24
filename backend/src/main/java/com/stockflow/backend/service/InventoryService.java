@@ -34,6 +34,7 @@ public class InventoryService {
     private final ActivityLogService activityLogService;
     private final NotificationService notificationService;
 
+    @Transactional(readOnly = true)
     public Page<InventoryDto> findAll(UUID warehouseId, UUID productId, String query, Pageable pageable) {
         UUID ownerId = currentUserService.currentUserId();
         return inventoryRepository.search(ownerId, warehouseId, productId, query, pageable).map(this::toDto);
@@ -116,6 +117,7 @@ public class InventoryService {
         activityLogService.log(owner, "INVENTORY", "TRANSFER_STOCK", from.getProduct().getName() + " x" + request.quantity());
     }
 
+    @Transactional(readOnly = true)
     public List<StockMovementDto> movementHistory(UUID productId) {
         UUID ownerId = currentUserService.currentUserId();
         List<StockMovement> records = productId == null

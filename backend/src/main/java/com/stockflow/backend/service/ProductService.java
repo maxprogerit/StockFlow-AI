@@ -31,12 +31,14 @@ public class ProductService {
     private final CurrentUserService currentUserService;
     private final ActivityLogService activityLogService;
 
+    @Transactional(readOnly = true)
     public Page<ProductDto> findAll(String query, Pageable pageable) {
         UUID ownerId = currentUserService.currentUserId();
         Page<Product> page = productRepository.findForOwner(ownerId, query, pageable);
         return page.map(productMapper::toDto);
     }
 
+    @Transactional(readOnly = true)
     public ProductDto findOne(UUID id) {
         UUID ownerId = currentUserService.currentUserId();
         Product product = productRepository.findById(id)
@@ -103,6 +105,7 @@ public class ProductService {
         }
     }
 
+    @Transactional(readOnly = true)
     public Map<String, Object> analytics(UUID id) {
         UUID ownerId = currentUserService.currentUserId();
         Product product = productRepository.findById(id)

@@ -1,10 +1,12 @@
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import api from "@/lib/api";
 import { EmptyState } from "@/components/common/EmptyState";
 import { motion } from "framer-motion";
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AlertTriangle, Boxes } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 type DashboardOverview = {
   totalInventoryValue: number;
@@ -36,7 +38,23 @@ export default function DashboardPage() {
     return (
       <div className="space-y-4">
         <h1 className="text-3xl font-semibold">AI Inventory Command Center</h1>
-        <EmptyState icon={Boxes} title="Your workspace is empty" description="Add first product, create first warehouse, and start recording inventory to unlock live analytics." />
+        <EmptyState icon={Boxes} title="Your workspace is empty" description="Start by setting up your core entities, then your analytics and alerts will populate automatically.">
+          <Button asChild>
+            <Link to="/products">Add first product</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/warehouses">Create first warehouse</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/suppliers">Add supplier</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/orders">Create first order</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/reports">Generate first report</Link>
+          </Button>
+        </EmptyState>
       </div>
     );
   }

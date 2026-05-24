@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +26,7 @@ public class AnalyticsService {
     private final SupplierRepository supplierRepository;
     private final OrderItemRepository orderItemRepository;
 
+    @Transactional(readOnly = true)
     public Map<String, Object> analytics() {
         UUID ownerId = currentUserService.currentUserId();
         var products = productRepository.findForOwner(ownerId, null, org.springframework.data.domain.PageRequest.of(0, 200)).toList();

@@ -14,12 +14,12 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, UU
     @Query("""
             select o from CustomerOrder o
             where o.owner.id = :ownerId
-              and (:status is null or o.status = :status)
-              and (:fromDate is null or o.orderedAt >= :fromDate)
+              and (cast(:status as String) is null or o.status = :status)
+              and (cast(:fromDate as Instant) is null or o.orderedAt >= :fromDate)
               and (
-                :query is null or trim(:query) = ''
-                or lower(o.orderNumber) like lower(concat('%', :query, '%'))
-                or lower(o.customerName) like lower(concat('%', :query, '%'))
+                :query is null or cast(:query as string) = ''
+                or lower(o.orderNumber) like lower(concat('%', cast(:query as string), '%'))
+                or lower(o.customerName) like lower(concat('%', cast(:query as string), '%'))
               )
             """)
     Page<CustomerOrder> search(@Param("ownerId") UUID ownerId, @Param("status") String status, @Param("fromDate") Instant fromDate, @Param("query") String query, Pageable pageable);
