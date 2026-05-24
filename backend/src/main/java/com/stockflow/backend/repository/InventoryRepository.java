@@ -21,10 +21,10 @@ public interface InventoryRepository extends JpaRepository<Inventory, UUID> {
               and (:warehouseId is null or i.warehouse.id = :warehouseId)
               and (:productId is null or i.product.id = :productId)
               and (
-                :query is null or trim(:query) = ''
-                or lower(i.product.name) like lower(concat('%', :query, '%'))
-                or lower(i.product.sku) like lower(concat('%', :query, '%'))
-                or lower(i.product.barcode) like lower(concat('%', :query, '%'))
+                :query is null or cast(:query as string) = ''
+                or lower(i.product.name) like lower(concat('%', cast(:query as string), '%'))
+                or lower(i.product.sku) like lower(concat('%', cast(:query as string), '%'))
+                or lower(i.product.barcode) like lower(concat('%', cast(:query as string), '%'))
               )
             """)
     Page<Inventory> search(@Param("ownerId") UUID ownerId, @Param("warehouseId") UUID warehouseId, @Param("productId") UUID productId, @Param("query") String query, Pageable pageable);

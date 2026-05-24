@@ -41,6 +41,7 @@ public class OrderService {
     private final CurrentUserService currentUserService;
     private final ActivityLogService activityLogService;
 
+    @Transactional(readOnly = true)
     public List<OrderDto> list(String type, String status, String query, int page, int size) {
         UUID ownerId = currentUserService.currentUserId();
         Pageable pageable = PageRequest.of(page, size);

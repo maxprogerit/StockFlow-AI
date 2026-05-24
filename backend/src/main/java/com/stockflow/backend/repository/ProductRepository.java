@@ -14,10 +14,10 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
             where p.owner.id = :ownerId
               and (
                 :query is null
-                or trim(:query) = ''
-                or lower(p.name) like lower(concat('%', :query, '%'))
-                or lower(p.sku) like lower(concat('%', :query, '%'))
-                or lower(p.barcode) like lower(concat('%', :query, '%'))
+                or cast(:query as string) = ''
+                or lower(p.name) like lower(concat('%', cast(:query as string), '%'))
+                or lower(p.sku) like lower(concat('%', cast(:query as string), '%'))
+                or lower(p.barcode) like lower(concat('%', cast(:query as string), '%'))
               )
             """)
     Page<Product> findForOwner(@Param("ownerId") UUID ownerId, @Param("query") String query, Pageable pageable);

@@ -22,6 +22,7 @@ public class SupplierService {
     private final CurrentUserService currentUserService;
     private final ActivityLogService activityLogService;
 
+    @Transactional(readOnly = true)
     public List<SupplierDto> list() {
         UUID ownerId = currentUserService.currentUserId();
         return supplierRepository.findByOwnerIdOrderByNameAsc(ownerId).stream().map(this::toDto).toList();

@@ -31,6 +31,7 @@ public class Alert extends BaseEntity {
     @Column(nullable = false)
     private boolean resolved = false;
     private String metadata;
+    @Column(name = "is_read")
     private boolean read = false;
 }
 

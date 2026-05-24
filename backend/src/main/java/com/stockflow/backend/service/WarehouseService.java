@@ -21,11 +21,13 @@ public class WarehouseService {
     private final CurrentUserService currentUserService;
     private final ActivityLogService activityLogService;
 
+    @Transactional(readOnly = true)
     public List<WarehouseDto> list() {
         UUID ownerId = currentUserService.currentUserId();
         return warehouseRepository.findByOwnerIdOrderByNameAsc(ownerId).stream().map(this::toDto).toList();
     }
 
+    @Transactional(readOnly = true)
     public WarehouseDto get(UUID id) {
         UUID ownerId = currentUserService.currentUserId();
         Warehouse warehouse = warehouseRepository.findById(id)
