@@ -9,9 +9,16 @@ backend/target/
 *.class
 *.jar
 
-# Environment
+# Environment & secrets
 .env
-.env.local
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+application-local.yml
+application-local.properties
 
 # IDE
 .idea/
